@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>升中分析 | HIS Tools</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+:root{
+  --bg:#f4f6fb; --card:#ffffff; --ink:#1c2333; --sub:#6b7590; --line:#e4e9f5;
+  --accent:#3b6ef6; --p1a:#6d1fa3; --p1ab:#8e3abf; --p1b:#b04fe0; --p1bc:#4f7de0; --p1c:#2fa8d8; --p1c2a:#38b6a5;
+}
+*{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang HK","Microsoft JhengHei",sans-serif; background:var(--bg); color:var(--ink); padding-bottom:76px}
+.hdr{position:sticky; top:0; z-index:20; background:linear-gradient(135deg,#3b6ef6,#7a1fa2); color:#fff; padding:14px 16px 12px; box-shadow:0 2px 10px rgba(30,40,90,.15)}
+.hdr{position:sticky; top:0; z-index:20; background:linear-gradient(135deg,#3b6ef6,#7a1fa2); color:#fff; padding:12px 16px; box-shadow:0 2px 10px rgba(30,40,90,.15)}
+.hdr .row{display:flex; align-items:center; gap:12px}
+.hdr img{width:44px; height:44px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,.28); object-fit:contain; background:#fff; padding:2px}
+.hdr .tt{flex:1}
+.hdr h1{font-size:18px; font-weight:700; letter-spacing:.5px}
+.hdr .v{font-size:11px; opacity:.85; margin-top:2px}
+/* filters: search + chips 一個 sticky 容器，唔會各自疊埋 */
+.filters{position:sticky; top:56px; z-index:15; background:var(--bg); padding:10px 12px 8px; box-shadow:0 2px 6px rgba(30,40,90,.05)}
+.search input{width:100%; border:1px solid var(--line); border-radius:22px; padding:9px 14px; font-size:14px; background:#fff; color:var(--ink); outline:none}
+.search input:focus{border-color:var(--accent); box-shadow:0 0 0 2px rgba(59,110,246,.12)}
+.chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px}
+.chip{border:1px solid var(--line); background:#fff; color:var(--sub); border-radius:16px; padding:5px 12px; font-size:12.5px; cursor:pointer; transition:all .15s}
+.chip.on{background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600}
+.panel{display:none}
+.panel.on{display:block}
+#mapBox{height:52vh; background:#e8edf7; border-radius:14px; margin:0 10px; overflow:hidden; box-shadow:0 2px 8px rgba(30,40,90,.08)}
+.bandlegend{display:flex; flex-wrap:wrap; gap:8px; justify-content:center; padding:8px 6px 2px; font-size:11px; color:var(--sub)}
+.bandlegend i{width:12px; height:12px; border-radius:3px; display:inline-block; vertical-align:-2px; margin-right:2px}
+.count{font-size:12px; color:var(--sub); padding:6px 14px 2px}
+/* district list */
+.dlist{background:var(--card); border-radius:14px; margin:8px 10px; padding:12px 14px; box-shadow:0 2px 8px rgba(30,40,90,.06)}
+.dlist h3{font-size:14px; margin-bottom:8px}
+.dlist .item{display:flex; align-items:center; gap:8px; padding:8px 6px; border-bottom:1px solid #f2f5fc; cursor:pointer}
+.dlist .item:last-child{border-bottom:0}
+.dlist .item b{font-size:13px; flex:1}
+.dlist .item .bd{font-size:11px; padding:2px 8px; border-radius:9px; color:#fff; font-weight:700}
+.empty{padding:30px 16px; text-align:center; color:var(--sub); font-size:13px}
+.card{background:var(--card); border-radius:14px; margin:10px; padding:14px 16px; box-shadow:0 2px 8px rgba(30,40,90,.06)}
+.detail{display:none; background:var(--card); border-radius:14px; margin:10px; padding:16px; box-shadow:0 4px 16px rgba(30,40,90,.12); border:1px solid var(--line); margin-bottom:130px}
+.detail.show{display:block}
+.detail h2{font-size:17px; margin-bottom:2px}
+.badges{display:flex; flex-wrap:wrap; gap:6px; margin:8px 0 6px}
+.badge{font-size:11.5px; padding:3px 9px; border-radius:10px; font-weight:600; color:#fff}
+.b-1a{background:var(--p1a)} .b-1ab{background:var(--p1ab)} .b-1b{background:var(--p1b)}
+.b-1bc{background:var(--p1bc)} .b-1c{background:var(--p1c)} .b-1c2a{background:var(--p1c2a)}
+.b-meta{background:#5b6b8c}
+.b-yin{background:#2f9e6e}.b-zhong{background:#d9822b}.b-intl{background:#c0392b}
+.b-gov{background:#3b6ef6}.b-sub{background:#8a5cd6}.b-dss{background:#d35400}.b-dsn{background:#e67e22}.b-intl2{background:#c0392b}
+.kv{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:10px 0; font-size:13px}
+.kv div{background:#f6f8fd; border-radius:10px; padding:8px 10px}
+.kv b{display:block; font-size:11px; color:var(--sub); font-weight:600; margin-bottom:2px}
+.ai{font-size:13px; line-height:1.65; color:#37415c; background:#fafbff; border-left:3px solid var(--accent); padding:8px 10px; border-radius:0 10px 10px 0; margin-top:8px}
+a.link{display:inline-block; margin-top:8px; color:var(--accent); font-size:13px; text-decoration:none; font-weight:600}
+.mine{font-size:12.5px; color:var(--sub); margin-top:8px; background:#fff8e1; border-radius:8px; padding:6px 10px}
+/* ===== 升中流程：兩條 Path 並排拍齊 ===== */
+.paths{padding:0 10px 28px}
+.paths-grid{display:grid; gap:10px 12px; align-items:start}
+.pg-hdr{font-size:14px; font-weight:700; padding:10px 12px; border-radius:12px; color:#fff; display:flex; align-items:center; gap:6px; margin-bottom:2px}
+.pg-hdr.c1{background:linear-gradient(135deg,#3b6ef6,#5f8bff)}
+.pg-hdr.c2{background:linear-gradient(135deg,#e67e22,#f5a04f)}
+.pg-hdr small{font-size:10.5px; opacity:.9; font-weight:400}
+.evt{position:relative; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:0 1px 5px rgba(30,40,90,.05); cursor:pointer; min-width:0}
+.evt:hover{border-color:var(--accent)}
+.evt .dot{position:absolute; left:9px; top:9px; width:13px; height:13px; border-radius:50%; border:3px solid #fff; box-shadow:0 0 0 1px #d0d8ec}
+.evt .dot.c1{background:#3b6ef6}
+.evt .dot.c2{background:#e67e22}
+.evt-year{position:absolute; right:8px; top:8px; font-size:10px; font-weight:700; color:#fff; background:#5b6b8c; border-radius:8px; padding:2px 7px}
+.evt-topic{font-size:12px; font-weight:700; line-height:1.35; padding:8px 8px 3px 28px; color:var(--ink)}
+.evt-box{background:#f6f8fd; border-radius:10px; margin:2px 8px 9px 28px; padding:6px 9px; border:1px solid var(--line)}
+.evt-when{font-size:11.5px; color:var(--sub); margin-bottom:4px}
+.evt-tags{display:flex; flex-wrap:wrap; gap:4px}
+.tag{font-size:10px; padding:2px 7px; border-radius:8px; font-weight:700; color:#fff}
+.t-long{background:#7f8fa6}.t-test{background:#e67e22}.t-self{background:#3b6ef6}.t-unify{background:#2ecc71}.t-reg{background:#9b59b6}
+.s-done{background:#2ecc71}.s-doing{background:#f39c12}.s-todo{background:#95a5a6}
+@media (max-width:420px){
+  .pg-hdr{font-size:12.5px; padding:8px 10px}
+  .evt-topic{font-size:11px; padding-left:24px}
+  .evt-box{margin-left:24px}
+  .evt .dot{left:7px; width:11px; height:11px}
+}
+/* bottom nav */
+.nav{position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--line); display:flex; z-index:30; padding-bottom:env(safe-area-inset-bottom)}
+.nav button{flex:1; padding:12px 0 10px; border:0; background:none; font-size:12.5px; color:var(--sub); display:flex; flex-direction:column; align-items:center; gap:2px; cursor:pointer; font-weight:600}
+.nav button .ic{font-size:18px}
+.nav button.on{color:var(--accent)}
+.modal{position:fixed; inset:0; background:rgba(15,22,45,.45); z-index:40; display:none; align-items:flex-end; justify-content:center}
+.modal.show{display:flex}
+.mcard{background:#fff; width:100%; max-width:520px; border-radius:18px 18px 0 0; max-height:78vh; overflow-y:auto; padding:18px 18px calc(18px + env(safe-area-inset-bottom)); animation:up .22s ease; position:relative}
+@keyframes up{from{transform:translateY(40px); opacity:0}to{transform:none; opacity:1}}
+.mcard h3{font-size:16px; margin-bottom:6px; padding-right:24px}
+.mcard .close{position:absolute; right:16px; top:14px; font-size:20px; color:var(--sub); background:none; border:0; cursor:pointer}
+.mx{font-size:13px; line-height:1.6; color:#37415c; margin-top:6px}
+.meta{font-size:12px; color:var(--sub); margin:4px 0 8px}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <div class="row">
+    <img src="logo.png?v=1.00" alt="HIS Tools">
+    <div class="tt">
+      <h1>🎓 升中分析 <span style="font-size:11px;opacity:.8">(Secondary School Study)</span></h1>
+      <div class="v" id="ver">v1.00</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ TAB 1 MAP ============ -->
+<div id="tabMap" class="panel on">
+  <div class="filters">
+    <div class="search"><input id="q" type="search" placeholder="🔍 搜尋學校名稱、地區、類別、關鍵字…"></div>
+    <div class="chips" id="langChips">
+      <span class="chip on" data-v="__all">全部語言</span>
+      <span class="chip" data-v="英中">英中</span>
+      <span class="chip" data-v="中中">中中</span>
+      <span class="chip" data-v="國際課程">國際課程</span>
+    </div>
+    <div class="chips" id="bandChips">
+      <span class="chip on" data-v="__all">全部 Band</span>
+      <span class="chip" data-v="1A">1A</span>
+      <span class="chip" data-v="1A-1B">1A-1B</span>
+      <span class="chip" data-v="1B">1B</span>
+      <span class="chip" data-v="1B-1C">1B-1C</span>
+      <span class="chip" data-v="1C">1C</span>
+      <span class="chip" data-v="1C-2A">1C-2A</span>
+    </div>
+  </div>
+  <div class="bandlegend">
+    <span><i style="background:#6d1fa3"></i>1A</span>
+    <span><i style="background:#8e3abf"></i>1A-1B</span>
+    <span><i style="background:#b04fe0"></i>1B</span>
+    <span><i style="background:#4f7de0"></i>1B-1C</span>
+    <span><i style="background:#2fa8d8"></i>1C</span>
+    <span><i style="background:#38b6a5"></i>1C-2A</span>
+  </div>
+  <div class="count" id="mapCount"></div>
+  <div id="mapBox"></div>
+  <div class="dlist" id="dlist" style="display:none"></div>
+  <div class="detail" id="sdetail"></div>
+</div>
+
+<!-- ============ TAB 2 PATHS ============ -->
+<div id="tabTime" class="panel">
+  <div class="filters">
+    <div class="chips" id="kidChips">
+      <span class="chip on" data-v="__all">全部孩子</span>
+      <span class="chip" data-v="Cici">Cici（2029升中）</span>
+      <span class="chip" data-v="Coco">Coco（2031升中）</span>
+    </div>
+  </div>
+  <div class="count" id="tlCount"></div>
+  <div class="paths" id="paths"></div>
+</div>
+
+<!-- bottom nav -->
+<div class="nav">
+  <button class="on" data-t="tabMap"><span class="ic">🗺️</span>中學地圖</button>
+  <button data-t="tabTime"><span class="ic">📅</span>升中流程</button>
+</div>
+
+<!-- detail modal -->
+<div class="modal" id="modal"><div class="mcard" id="mcard"></div></div>
+
+<script>
+const VER = "1.00";
+let DATA = null, GEO = null, mapChart = null;
+const cur = { lang:"__all", band:"__all", kid:"__all", q:"", dist:null };
+const BAND_CLS = {"1A":"b-1a","1A-1B":"b-1ab","1B":"b-1b","1B-1C":"b-1bc","1C":"b-1c","1C-2A":"b-1c2a"};
+const PH_CLS = {"長期準備":"t-long","呈分試":"t-test","自行分配":"t-self","統一派位":"t-unify","派位及註冊":"t-reg"};
+const ST_CLS = {"已完成":"s-done","進行中":"s-doing","未開始":"s-todo"};
+/* 校網（繁）→ GeoJSON 區名（簡） */
+const DIST_MAP = {"中西區":"中西区","灣仔區":"湾仔区","東區":"东区","南區":"南区","油尖旺區":"油尖旺区",
+  "深水埗區":"深水埗区","九龍城區":"九龙城区","黃大仙區":"黄大仙区","觀塘區":"观塘区","荃灣區":"荃湾区",
+  "屯門區":"屯门区","元朗區":"元朗区","沙田區":"沙田区","葵青區":"葵青区","離島區":"离岛区"};
+const REG_COLOR = ["#f5c6a0","#f2e0a8","#c8e6c9","#b2dfdb","#ffccbc","#d7ccc8","#e1bee7","#ffe0b2","#b3e5fc",
+  "#dcedc8","#c5e1a5","#fff9c4","#f8bbd0","#b0bec5","#a5d6a7","#cfd8dc","#e6c9a8","#bcaaa4"];
+const pct = v => v===null||v===undefined||v==="" ? "—" : (v*100).toFixed(1)+"%";
+function esc(s){ return String(s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+async function load(){
+  try{
+    const [j, g] = await Promise.all([fetch("j10.json"+"?v="+VER), fetch("hk_geo.json"+"?v="+VER)]);
+    DATA = await j.json(); GEO = await g.json();
+    document.getElementById("ver").textContent = "v"+DATA.version+"　資料更新："+DATA.lastUpdate;
+    renderMap(); renderPaths();
+  }catch(e){
+    document.getElementById("mapCount").textContent = "⚠️ 載入失敗："+e.message;
+  }
+}
+
+/* ---------- TAB 1 MAP ---------- */
+function band1Schools(){ return DATA.schools.filter(s=>String(s.band).startsWith("1")); }
+function mapFiltered(){
+  const q = cur.q.trim().toLowerCase();
+  return band1Schools().filter(s=>
+    (cur.lang==="__all" || s.lang===cur.lang) &&
+    (cur.band==="__all" || s.band===cur.band) &&
+    (!q || [s.name,s.district,s.category,s.lang,s.band,s.ai,s.route,s.gender].join(" ").toLowerCase().includes(q))
+  );
+}
+function renderMap(){
+  const list = mapFiltered();
+  document.getElementById("mapCount").textContent = "共 "+list.length+" 間 Band 1 中學" + (cur.dist?("｜當前區域："+cur.dist):"");
+  if(!mapChart){
+    echarts.registerMap("HK", GEO);
+    mapChart = echarts.init(document.getElementById("mapBox"));
+    mapChart.on("click", p=>{
+      if(p.componentType==="geo" && p.region){
+        const tw = Object.keys(DIST_MAP).find(k=>DIST_MAP[k]===p.region.name);
+        cur.dist = tw || String(p.region.name||"").replace("区","區");
+        renderMap(); renderDistrict();
+      } else if(p.componentType==="series" && p.data && p.data.id){
+        showSchool(p.data.id);
+      }
+    });
+    mapChart.on("georoam", ()=>mapChart.resize());
+    window.addEventListener("resize", ()=>mapChart.resize());
+  }
+  const series = list.map(s=>({
+    name:s.name, id:s.id, value:[s.lng, s.lat], band:s.band, lang:s.lang, district:s.district,
+    category:s.category, jupas:s.jupas, localU:s.localU
+  }));
+  const active = cur.dist;
+  const geoItem = {};
+  GEO.features.forEach((ft,i)=>{
+    const nm = ft.properties.name;
+    const tw = Object.keys(DIST_MAP).find(k=>DIST_MAP[k]===nm);
+    const col = tw ? REG_COLOR[Object.values(DIST_MAP).indexOf(nm)] : "#dbe4f5";
+    geoItem[nm] = { itemStyle:{ areaColor: col, borderColor:"#9db3d4", borderWidth: active?1:1.2,
+        opacity: active && tw && tw!==active ? .35 : 1 } };
+  });
+  mapChart.setOption({
+    tooltip:{ formatter:p=>{
+      const s=p.data; if(!s) return "";
+      return "<b>"+esc(s.name)+"</b><br/>Band "+esc(s.band)+" · "+esc(s.lang)+"<br/>JUPAS 大學%："+pct(s.jupas)+"<br/>本地大學升讀%："+pct(s.localU);
+    }},
+    geo:{ map:"HK", roam:false, zoom:1.06, center:[114.16,22.32], regions:Object.keys(geoItem).map(k=>({name:k, ...geoItem[k]})),
+      itemStyle:{ areaColor:"#dbe4f5", borderColor:"#a9bdd9", borderWidth:1 },
+      emphasis:{ itemStyle:{ areaColor:"#c9d8f0" }, label:{ show:false } }, label:{ show:false },
+      select:{ disabled:true }
+    },
+    series:[{
+      type:"scatter", coordinateSystem:"geo", data:series,
+      symbolSize: p=> active && p.data.district===active ? 20 : 14,
+      itemStyle:{
+        color: p=>BAND_CLS[p.data.band]||"#3b6ef6",
+        opacity: p=> active ? (p.data.district===active?1:.12) : 1,
+        borderColor:"#fff", borderWidth:1
+      },
+      emphasis:{ label:{ show:true, position:"top", formatter:p=>p.data.name, fontSize:11, color:"#1c2333", fontWeight:700 } }
+    }]
+  });
+}
+function renderDistrict(){
+  const box = document.getElementById("dlist");
+  if(!cur.dist){ box.style.display="none"; box.innerHTML=""; return; }
+  const list = band1Schools().filter(s=>s.district===cur.dist);
+  box.style.display = "block";
+  box.innerHTML = "<h3>📍 "+esc(cur.dist)+"（"+list.length+" 間）</h3>"+
+    (list.length? list.map(s=>
+      "<div class='item' onclick='showSchool(\""+s.id+"\")'><b>"+esc(s.name)+"</b><span class='bd "+BAND_CLS[s.band]+"'>"+esc(s.band)+"</span></div>"
+    ).join("") : "<div class='empty'>此區暫無 Band 1 中學記錄</div>");
+}
+function showSchool(id){
+  const s = DATA.schools.find(x=>x.id===id); if(!s) return;
+  const d = document.getElementById("sdetail");
+  d.className = "detail show";
+  d.innerHTML =
+    "<h2>"+esc(s.name)+"</h2>"+
+    "<div class='badges'>"+
+      (BAND_CLS[s.band]?'<span class="badge '+BAND_CLS[s.band]+'">Band '+esc(s.band)+'</span>':'')+
+      (s.lang==="英中"?'<span class="badge b-yin">英中</span>':s.lang==="中中"?'<span class="badge b-zhong">中中</span>':s.lang==="國際課程"?'<span class="badge b-intl">國際課程</span>':'')+
+      clsBadge(s.category)+(s.gender?'<span class="badge b-meta">'+esc(s.gender)+'</span>':'')+
+      (s.route?'<span class="badge b-meta">'+esc(s.route)+'</span>':'')+
+      (s.district?'<span class="badge b-meta">'+esc(s.district)+'</span>':'')+
+    "</div>"+
+    "<div class='kv'>"+
+      "<div><b>JUPAS 大學%</b>"+pct(s.jupas)+"</div>"+
+      "<div><b>本地大學升讀%</b>"+pct(s.localU)+"</div>"+
+      "<div><b>教學語言</b>"+esc(s.lang||"—")+"</div>"+
+      "<div><b>類別</b>"+esc(s.category||"—")+"</div>"+
+      "<div><b>校網 / 地區</b>"+esc(s.district||"—")+"</div>"+
+      "<div><b>性別</b>"+esc(s.gender||"—")+"</div>"+
+    "</div>"+
+    (s.openDay?'<div class="mine">🗓️ Open Day：'+esc(s.openDay)+'</div>':'')+
+    (s.ai?'<div class="ai">🤖 AI 評價：'+esc(s.ai)+'</div>':'')+
+    (s.website?'<a class="link" href="'+esc(s.website)+'" target="_blank" rel="noopener">🌐 學校官網 ↗</a>':'')+
+    (s.my?'<div class="mine">📝 我的評價：'+esc(s.my)+'</div>':'');
+  d.scrollIntoView({behavior:"smooth", block:"start"});
+}
+function clsBadge(c){
+  const m = {"官立":"b-gov","資助":"b-sub","直資（參加派位）":"b-dss","直資（非參加派位）":"b-dsn","國際學校":"b-intl2"};
+  return '<span class="badge '+(m[c]||"b-meta")+'">'+esc(c)+'</span>';
+}
+
+/* ---------- TAB 2 PATHS ---------- */
+const ANNUAL_KEYS = ["中學資訊收集","留意心儀中學開放日","非參加派位直資"];
+function parseWhen(s){
+  if(!s) return null;
+  const m = s.match(/(20\d{2})年(\d{1,2})月/);
+  return m ? {Y:+m[1], M:+m[2]} : {Y:9999, M:13};
+}
+function pathEvents(kid){
+  const all = DATA.timeline.filter(t=>{
+    const k = Array.isArray(t.kids)?t.kids:[t.kids];
+    return k.includes(kid) || k.includes("兩個孩子");
+  });
+  const annual = all.filter(t=>String(t.when||"").includes("每年"))
+    .sort((a,b)=> ANNUAL_KEYS.indexOf(ANNUAL_KEYS.find(k=>String(a.item).includes(k))) - ANNUAL_KEYS.indexOf(ANNUAL_KEYS.find(k=>String(b.item).includes(k))));
+  const dated = all.filter(t=>!String(t.when||"").includes("每年"))
+    .sort((a,b)=>{ const pa=parseWhen(a.when), pb=parseWhen(b.when);
+      return (pa.Y*100+pa.M)-(pb.Y*100+pb.M); });
+  return [...annual, ...dated];
+}
+function evtHTML(t, cls){
+  if(!t) return '<div class="pg-cell"></div>';
+  const p = parseWhen(t.when);
+  const y = p && p.Y<9999 ? '<div class="evt-year">'+p.Y+'</div>' : '<div class="evt-year">每年</div>';
+  return '<div class="evt '+cls+'" data-i="'+DATA.timeline.indexOf(t)+'">'+
+    '<div class="dot '+cls+'"></div>'+
+    '<div class="evt-topic">'+esc(t.item)+'</div>'+
+    '<div class="evt-box">'+
+      '<div class="evt-when">🕒 '+esc(t.when||"—")+'</div>'+
+      '<div class="evt-tags">'+
+        '<span class="tag '+PH_CLS[t.phase]+'">'+esc(t.phase)+'</span>'+
+        '<span class="tag '+ST_CLS[t.status]+'">'+esc(t.status)+'</span>'+
+        (t.note?'<span class="tag t-long">💡 '+esc(t.note.slice(0,12))+(t.note.length>12?"…":"")+'</span>':"")+
+      '</div>'+
+    '</div>'+
+  '</div>';
+}
+function renderPaths(){
+  const kids = cur.kid;
+  const showCici = kids==="__all" || kids==="Cici";
+  const showCoco = kids==="__all" || kids==="Coco";
+  const nCols = (showCici&&showCoco) ? 2 : 1;
+  document.getElementById("tlCount").textContent = nCols===2
+    ? "Cici 與 Coco 兩條 Path 並排，相應階段水平對齊（上→下：近→遠）"
+    : (showCici?"Cici":"Coco")+" 升中 Path（上→下：近→遠）";
+  const a = showCici ? pathEvents("Cici") : [];
+  const b = showCoco ? pathEvents("Coco") : [];
+  const rows = Math.max(a.length, b.length);
+  let h = '<div class="paths-grid" style="grid-template-columns:'+(nCols===2?'1fr 1fr':'1fr')+'">';
+  if(nCols===2){
+    h += '<div class="pg-hdr c1">Cici <small>2029 升中（2028-2029）</small></div>'+
+         '<div class="pg-hdr c2">Coco <small>2031 升中（2030-2031）</small></div>';
+  } else {
+    h += '<div class="pg-hdr '+(showCici?"c1":"c2")+'" style="grid-column:1/-1">'+(showCici?"Cici":"Coco")+' <small>'+(showCici?"2029 升中（2028-2029）":"2031 升中（2030-2031）")+'</small></div>';
+  }
+  for(let i=0;i<rows;i++){
+    h += (showCici?evtHTML(a[i],"c1"):'<div class="pg-cell"></div>');
+    h += (showCoco?evtHTML(b[i],"c2"):'<div class="pg-cell"></div>');
+  }
+  h += '</div>';
+  document.getElementById("paths").innerHTML = h;
+  document.querySelectorAll("#paths .evt").forEach(el=>{
+    const t = DATA.timeline[+el.dataset.i];
+    el.onclick = ()=>showTimeline(t);
+  });
+}
+function showTimeline(t){
+  const mc = document.getElementById("mcard");
+  const kids = Array.isArray(t.kids)?t.kids.join("、"):(t.kids||"—");
+  mc.innerHTML =
+    "<button class='close' onclick=\"document.getElementById('modal').classList.remove('show')\">✕</button>"+
+    "<h3>"+esc(t.item)+"</h3>"+
+    "<div class='meta'>適用孩子："+esc(kids)+" ｜ 階段："+esc(t.phase)+" ｜ 狀態："+esc(t.status)+"</div>"+
+    "<div class='mx'>🕒 <b>預計時間：</b>"+esc(t.when||"—")+"</div>"+
+    (t.detail?"<div class='mx'>📋 <b>要做咩／詳情：</b>"+esc(t.detail)+"</div>":"")+
+    (t.note?"<div class='mx'>💡 <b>備註：</b>"+esc(t.note)+"</div>":"");
+  document.getElementById("modal").classList.add("show");
+}
+
+/* ---------- nav & chips & search ---------- */
+document.querySelectorAll(".nav button").forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll(".nav button").forEach(x=>x.classList.remove("on"));
+    document.querySelectorAll(".panel").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on");
+    document.getElementById(b.dataset.t).classList.add("on");
+    if(b.dataset.t==="tabMap" && mapChart) setTimeout(()=>mapChart.resize(),60);
+  };
+});
+function bindChips(sel, key, fn){
+  document.querySelectorAll(sel).forEach(c=>{
+    c.onclick=()=>{
+      document.querySelectorAll(sel).forEach(x=>x.classList.remove("on"));
+      c.classList.add("on");
+      cur[key]=c.dataset.v; fn();
+    };
+  });
+}
+bindChips("#langChips .chip","lang",()=>{ renderMap(); });
+bindChips("#bandChips .chip","band",()=>{ renderMap(); });
+bindChips("#kidChips .chip","kid",renderPaths);
+document.getElementById("q").addEventListener("input", e=>{ cur.q=e.target.value; renderMap(); });
+document.getElementById("modal").addEventListener("click", e=>{ if(e.target.id==="modal") e.target.classList.remove("show"); });
+
+load();
+</script>
+</body>
+</html>
