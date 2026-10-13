@@ -13,6 +13,7 @@
 - j10.json 由「中學選擇與評價」及「申請路徑與時間表」兩張表導出
 
 ## Version Control
+- v1.01 (2026-10-13): header 移除 🎓 emoji，LOGO 拍齊
 
 | Version | Date | Description |
 |---------|------|-------------|
